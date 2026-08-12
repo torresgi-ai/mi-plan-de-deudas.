@@ -1,0 +1,24 @@
+MI PLAN DE DEUDAS — PWA INSTALABLE PARA ANDROID / GALAXY
+
+Archivos incluidos:
+- index.html
+- manifest.webmanifest
+- service-worker.js
+- icon-192.png
+- icon-512.png
+
+IMPORTANTE:
+Una PWA necesita abrirse desde HTTPS para que Chrome permita instalarla y para que el Service Worker funcione.
+Abrir index.html directamente desde "Mis archivos" no habilita la instalación completa como app.
+
+Una vez publicada en HTTPS:
+1. Abre la dirección de la app en Google Chrome en tu Galaxy.
+2. Espera unos segundos.
+3. Pulsa el botón "Instalar app" si aparece; o abre ⋮.
+4. Selecciona "Instalar aplicación" o "Agregar a pantalla principal".
+5. Confirma "Instalar".
+6. Se creará el icono "Mi Plan de Deudas" en la pantalla de inicio y/o cajón de aplicaciones.
+
+La app funciona offline después de la primera carga.
+Los datos se guardan localmente en el navegador/app del dispositivo.
+Usa Backup regularmente.
