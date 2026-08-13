@@ -1,0 +1,27 @@
+MI PLAN DE DEUDAS v2.2 FINAL
+
+Incluye:
+- Misma base local de datos de la versión actual (mi_plan_deudas_v2).
+- Dashboard financiero y seguimiento mensual.
+- Estados: pendiente, próxima a vencer, pago parcial, pagada y atrasada.
+- Monto que falta por pagar este mes.
+- Utilización total e individual de tarjetas.
+- Indicadores de salud financiera.
+- Registro de pagos con detección de duplicados.
+- Edición y eliminación de pagos.
+- Historial.
+- Snowball y Avalanche con comparación rápida.
+- Fecha estimada de payoff e intereses.
+- Backup/restore JSON, recordatorio de backup y CSV.
+- Navegación móvil optimizada.
+- PWA offline.
+
+PARA ACTUALIZAR GITHUB:
+Reemplaza en la raíz:
+index.html
+manifest.webmanifest
+service-worker.js
+icon-192.png
+icon-512.png
+
+No reinstales la app. Luego abre con Internet, cierra completamente y vuelve a abrir.

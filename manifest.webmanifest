@@ -1,7 +1,7 @@
 {
   "name": "Mi Plan de Deudas",
   "short_name": "Mis Deudas",
-  "description": "Aplicación personal para administrar deudas, pagos, vencimientos y proyecciones.",
+  "description": "Manejo personal de deudas, pagos, vencimientos, utilización, backups y proyecciones.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

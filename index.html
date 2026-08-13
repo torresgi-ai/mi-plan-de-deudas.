@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mi Plan de Deudas v2</title>
+<title>Mi Plan de Deudas v2.2 Final</title>
 <style>
 :root{
  --bg:#f5f7fb;--card:#fff;--text:#18212f;--muted:#667085;--primary:#2457d6;--primary2:#143c9e;
@@ -51,11 +51,63 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="icon-192.png">
 
+
+<style>
+/* v2.2 mobile UX */
+.version-pill{
+  display:inline-block;margin-top:8px;padding:4px 9px;border-radius:999px;
+  background:rgba(255,255,255,.16);font-size:12px;font-weight:800
+}
+.backup-banner{
+  display:none;margin-bottom:12px;padding:12px 14px;border-radius:12px;
+  background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;
+  align-items:center;justify-content:space-between;gap:10px
+}
+.backup-banner.show{display:flex}
+.backup-banner button{flex:0 0 auto}
+.backup-status{
+  padding:12px;border:1px solid var(--border);border-radius:10px;background:#fafafa;margin-top:12px
+}
+.bottom-nav{display:none}
+@media(max-width:700px){
+  nav{
+    position:sticky;top:0;z-index:20;
+    padding:8px 10px;gap:6px;scrollbar-width:none
+  }
+  nav::-webkit-scrollbar{display:none}
+  nav button{padding:9px 12px;font-size:13px}
+  header{padding-bottom:18px}
+  main{padding-bottom:86px}
+  .bottom-nav{
+    display:grid;grid-template-columns:repeat(5,1fr);position:fixed;
+    left:0;right:0;bottom:0;z-index:50;background:#fff;border-top:1px solid var(--border);
+    padding:6px 6px max(6px,env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(16,24,40,.08)
+  }
+  .bottom-nav button{
+    border:0;background:transparent;color:#667085;padding:6px 2px;font-size:11px;font-weight:700;
+    display:flex;flex-direction:column;align-items:center;gap:2px
+  }
+  .bottom-nav button.active{color:var(--primary)}
+  .bottom-nav .ico{font-size:18px;line-height:1}
+}
+</style>
+
+
+<style>
+.health-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.health-card{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff}
+.health-card .label{font-size:12px;color:var(--muted)}
+.health-card .value{font-size:18px;font-weight:800;margin-top:3px}
+.util-low{color:#067647}.util-mid{color:#b54708}.util-high{color:#b42318}
+.notice{padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#fafafa;margin:10px 0}
+.payment-edit-box{margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:#fafafa}
+@media(max-width:700px){.health-row{grid-template-columns:repeat(2,1fr)}}
+</style>
 </head>
 <body>
 <header>
- <h1>Mi Plan de Deudas v2</h1>
- <p>Seguimiento mensual, vencimientos, pagos, estados y proyección de payoff.</p>
+ <h1>Mi Plan de Deudas v2.2 Final</h1>
+ <p>Seguimiento mensual, vencimientos, pagos, estados y proyección de payoff.</p><span class="version-pill">Versión 2.2 Final</span>
 </header>
 <nav>
  <button class="active" data-tab="dashboard">Dashboard</button>
@@ -68,9 +120,13 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
 <button id="installAppBtn" style="display:none;background:#067647;color:#fff">Instalar app</button>
 </nav>
 <main>
+<div id="backupBanner" class="backup-banner">
+  <div><b>Backup recomendado</b><div class="small" id="backupBannerText">Aún no has exportado un backup.</div></div>
+  <button class="secondary" onclick="openBackupTab()">Ir a Backup</button>
+</div>
 
 <section id="dashboard" class="active">
- <div class="grid" id="metrics"></div>
+ <div class="grid" id="metrics"></div><div class="health-row" id="healthMetrics"></div>
  <div style="height:12px"></div>
  <div class="two">
    <div class="card"><h3>Estado de tus deudas</h3><div id="dashboardDebts"></div></div>
@@ -130,7 +186,18 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
 </section>
 
 <section id="history">
- <div class="card"><h2>Historial de pagos</h2><div id="paymentHistory"></div></div>
+ <div class="card"><h2>Historial de pagos</h2><div id="paymentHistory"></div>
+<div id="paymentEditBox" class="payment-edit-box" style="display:none">
+<h3>Editar pago</h3>
+<form id="editPaymentForm">
+<input type="hidden" id="editPaymentId">
+<div><label>Fecha</label><input id="editPaymentDate" type="date" required></div>
+<div><label>Monto ($)</label><input id="editPaymentAmount" type="number" min="0.01" step="0.01" required></div>
+<div class="full"><label>Notas</label><input id="editPaymentNotes"></div>
+<div class="full"><button class="primary" type="submit">Guardar cambios</button> <button class="secondary" type="button" onclick="cancelEditPayment()">Cancelar</button></div>
+</form>
+<div class="small">Editar un pago modifica el historial. Si necesitas corregir el balance actual, edita también la deuda.</div>
+</div></div>
 </section>
 
 <section id="strategy">
@@ -145,7 +212,7 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
    <div style="height:10px"></div>
    <label>Pago adicional mensual disponible ($)</label>
    <input id="extraPayment" type="number" min="0" step="1" value="0" oninput="renderProjection()">
-   <div style="height:14px"></div><div id="projection"></div>
+   <div style="height:14px"></div><div id="projectionComparison"></div><div style="height:12px"></div><div id="projection"></div>
   </div>
   <div class="card">
    <h2>Prioridad actual</h2><div id="strategyOrder"></div>
@@ -154,19 +221,38 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
 </section>
 
 <section id="backup">
- <div class="card">
-  <h2>Backup y exportación</h2>
-  <p>Los datos se guardan localmente en este navegador. Exporta un backup periódicamente.</p>
-  <button class="primary" onclick="exportData()">Exportar backup JSON</button>
-  <button class="secondary" onclick="document.getElementById('importFile').click()">Importar backup</button>
-  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-  <button class="secondary" onclick="exportCSV()">Exportar pagos CSV</button>
-  <div style="height:16px"></div>
-  <button class="danger" onclick="clearAll()">Borrar todos los datos</button>
+ <div class="two">
+  <div class="card">
+   <h2>Backup y restauración</h2>
+   <p>La información se guarda en este dispositivo. Exporta un backup JSON regularmente para poder restaurarla si cambias de teléfono o borras los datos de la app.</p>
+   <button class="primary" onclick="exportData()">Crear backup ahora</button>
+   <button class="secondary" onclick="document.getElementById('importFile').click()">Restaurar desde backup</button>
+   <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+   <button class="secondary" onclick="exportCSV()">Exportar pagos CSV</button>
+   <div id="backupStatus" class="backup-status"></div>
+  </div>
+  <div class="card">
+   <h2>Seguridad de tus datos</h2>
+   <div class="kv"><span>Almacenamiento</span><b>Este dispositivo</b></div>
+   <div class="kv"><span>Sincronización cloud</span><b>No</b></div>
+   <div class="kv"><span>Backup recomendado</span><b>Cada 7 días</b></div>
+   <div class="kv"><span>Formato</span><b>JSON</b></div>
+   <div style="height:16px"></div>
+   <button class="danger" onclick="clearAll()">Borrar todos los datos</button>
+  </div>
  </div>
 </section>
 
 </main>
+
+<div class="bottom-nav" id="bottomNav">
+ <button data-go="dashboard" class="active"><span class="ico">⌂</span><span>Inicio</span></button>
+ <button data-go="debts"><span class="ico">▣</span><span>Deudas</span></button>
+ <button data-go="payments"><span class="ico">＋</span><span>Pago</span></button>
+ <button data-go="strategy"><span class="ico">↗</span><span>Proyección</span></button>
+ <button data-go="backup"><span class="ico">⋯</span><span>Backup</span></button>
+</div>
+
 <script>
 const KEY='mi_plan_deudas_v2';
 let data=JSON.parse(localStorage.getItem(KEY)||'{"debts":[],"payments":[],"snapshots":[]}');
@@ -208,6 +294,8 @@ $('paymentForm').onsubmit=e=>{
  e.preventDefault();
  const d=data.debts.find(x=>x.id===$('paymentDebt').value);if(!d)return;
  const amount=+$('paymentAmount').value,nb=$('newBalance').value,date=$('paymentDate').value;
+ const duplicate=data.payments.find(p=>p.debtId===d.id&&p.date===date&&Math.abs(p.amount-amount)<0.005);
+ if(duplicate&&!confirm('Ya existe un pago con la misma deuda, fecha y monto. ¿Registrar otro de todas formas?'))return;
  data.payments.push({id:uid(),debtId:d.id,date,amount,newBalance:nb===''?null:+nb,notes:$('paymentNotes').value.trim()});
  d.balance=nb===''?Math.max(0,d.balance-amount):+nb;
  const month=date.slice(0,7);
@@ -215,6 +303,20 @@ $('paymentForm').onsubmit=e=>{
  if(snap){snap.lastPaymentDate=date;snap.paid=(snap.paid||0)+amount;if(nb!=='')snap.statementBalance=+nb;}
  $('paymentForm').reset();$('paymentDate').value=today();save();alert('Pago registrado.');
 };
+
+function editPayment(id){
+ const p=data.payments.find(x=>x.id===id);if(!p)return;
+ $('editPaymentId').value=p.id;$('editPaymentDate').value=p.date;$('editPaymentAmount').value=p.amount;$('editPaymentNotes').value=p.notes||'';
+ $('paymentEditBox').style.display='block';$('paymentEditBox').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function cancelEditPayment(){$('paymentEditBox').style.display='none';$('editPaymentForm').reset();}
+if($('editPaymentForm')){
+ $('editPaymentForm').onsubmit=e=>{
+  e.preventDefault();const p=data.payments.find(x=>x.id===$('editPaymentId').value);if(!p)return;
+  p.date=$('editPaymentDate').value;p.amount=+$('editPaymentAmount').value;p.notes=$('editPaymentNotes').value.trim();
+  cancelEditPayment();save();
+ };
+}
 function deletePayment(id){
  if(!confirm('¿Eliminar este pago? El balance actual no se recalculará automáticamente.'))return;
  data.payments=data.payments.filter(p=>p.id!==id);save();
@@ -223,6 +325,10 @@ function monthKey(){return today().slice(0,7)}
 function monthlyPayments(debtId,month=monthKey()){
  return data.payments.filter(p=>p.debtId===debtId&&p.date.slice(0,7)===month).reduce((s,p)=>s+p.amount,0);
 }
+
+function remainingThisMonth(d){return Math.max(0,d.minPayment-monthlyPayments(d.id));}
+function utilizationClass(pct){if(pct>=70)return 'util-high';if(pct>=30)return 'util-mid';return 'util-low';}
+function utilizationLabel(pct){if(pct>=70)return 'Alta';if(pct>=50)return 'Elevada';if(pct>=30)return 'Moderada';return 'Buena';}
 function nextDueDate(day){
  const now=new Date(),base=new Date(now.getFullYear(),now.getMonth(),now.getDate());let y=now.getFullYear(),m=now.getMonth();
  let last=new Date(y,m+1,0).getDate(),d=new Date(y,m,Math.min(day,last));
@@ -237,24 +343,43 @@ function statusFor(d){
  if(d.balance<=0)return ['Pagada','good'];
  const paid=monthlyPayments(d.id),due=dueDateThisMonth(d.dueDay),now=new Date();now.setHours(0,0,0,0);
  if(paid>=d.minPayment)return ['Pagada este mes','good'];
- if(now>due)return ['Atrasada','danger'];
+ if(now>due)return paid>0?['Parcial / vencida','danger']:['Atrasada','danger'];
  const days=Math.round((due-now)/86400000);
+ if(paid>0)return ['Pago parcial','warn'];
  if(days<=7)return ['Próxima a vencer','warn'];
  return ['Pendiente','neutral'];
 }
 function renderMetrics(){
  const total=data.debts.reduce((s,d)=>s+d.balance,0),monthly=data.debts.reduce((s,d)=>s+d.minPayment,0);
  const paid=data.payments.filter(p=>p.date.slice(0,7)===monthKey()).reduce((s,p)=>s+p.amount,0);
- const pending=data.debts.filter(d=>statusFor(d)[0]!=='Pagada este mes'&&d.balance>0).reduce((s,d)=>s+Math.max(0,d.minPayment-monthlyPayments(d.id)),0);
+ const pending=data.debts.filter(d=>d.balance>0).reduce((s,d)=>s+remainingThisMonth(d),0);
  const utilBal=data.debts.filter(d=>d.creditLimit>0).reduce((s,d)=>s+d.balance,0),limits=data.debts.reduce((s,d)=>s+d.creditLimit,0);
  const util=limits?utilBal/limits*100:0;
  const cards=[['Deuda total',money(total)],['Mínimos/mes',money(monthly)],['Pagado este mes',money(paid)],['Pendiente este mes',money(pending)],['Utilización tarjetas',limits?util.toFixed(1)+'%':'—']];
  $('metrics').innerHTML=cards.map(x=>`<div class="card metric"><div class="label">${x[0]}</div><div class="value">${x[1]}</div></div>`).join('');
+ renderHealthMetrics();
+}
+function renderHealthMetrics(){
+ const active=data.debts.filter(d=>d.balance>0);
+ const completed=active.filter(d=>monthlyPayments(d.id)>=d.minPayment).length;
+ const partial=active.filter(d=>monthlyPayments(d.id)>0&&monthlyPayments(d.id)<d.minPayment).length;
+ const cards=active.filter(d=>d.creditLimit>0);
+ const totalLimits=cards.reduce((s,d)=>s+d.creditLimit,0),totalCardBal=cards.reduce((s,d)=>s+d.balance,0);
+ const util=totalLimits?totalCardBal/totalLimits*100:null;
+ const now=new Date();now.setHours(0,0,0,0);
+ const upcoming=active.map(d=>({d,date:nextDueDate(d.dueDay)})).sort((a,b)=>a.date-b.date)[0];
+ const nextText=upcoming?`${upcoming.d.name} · ${Math.max(0,Math.round((upcoming.date-now)/86400000))} días`:'—';
+ $('healthMetrics').innerHTML=[
+  ['Pagos completados',`${completed}/${active.length||0}`],
+  ['Pagos parciales',partial],
+  ['Próximo pago',nextText],
+  ['Utilización',util===null?'—':`${util.toFixed(1)}% · ${utilizationLabel(util)}`]
+ ].map((x,i)=>`<div class="health-card"><div class="label">${x[0]}</div><div class="value ${i===3&&util!==null?utilizationClass(util):''}">${x[1]}</div></div>`).join('');
 }
 function renderDebtList(){
  if(!data.debts.length){$('debtList').innerHTML='<div class="empty">Aún no has añadido deudas.</div>';return}
  $('debtList').innerHTML='<div class="table-wrap"><table><thead><tr><th>Deuda</th><th>Balance</th><th>APR</th><th>Pago</th><th>Due</th><th>Estado</th><th></th></tr></thead><tbody>'+
- data.debts.map(d=>{const st=statusFor(d);return `<tr><td><b>${d.name}</b><br><span class="small">${d.type}</span></td><td>${money(d.balance)}</td><td>${d.apr.toFixed(2)}%</td><td>${money(d.minPayment)}</td><td>Día ${d.dueDay}</td><td><span class="badge ${st[1]}">${st[0]}</span></td><td><div class="row-actions"><button class="secondary" onclick="editDebt('${d.id}')">Editar</button><button class="danger" onclick="deleteDebt('${d.id}')">Eliminar</button></div></td></tr>`}).join('')+
+ data.debts.map(d=>{const st=statusFor(d);return `<tr><td><b>${d.name}</b><br><span class="small">${d.type}</span></td><td>${money(d.balance)}${d.creditLimit?`<br><span class="small ${utilizationClass(d.balance/d.creditLimit*100)}">${(d.balance/d.creditLimit*100).toFixed(1)}% uso</span>`:''}</td><td>${d.apr.toFixed(2)}%</td><td>${money(d.minPayment)}</td><td>Día ${d.dueDay}</td><td><span class="badge ${st[1]}">${st[0]}</span></td><td><div class="row-actions"><button class="secondary" onclick="editDebt('${d.id}')">Editar</button><button class="danger" onclick="deleteDebt('${d.id}')">Eliminar</button></div></td></tr>`}).join('')+
  '</tbody></table></div>';
 }
 function renderPaymentSelect(){
@@ -264,7 +389,7 @@ function renderHistory(){
  const rows=[...data.payments].sort((a,b)=>b.date.localeCompare(a.date));
  if(!rows.length){$('paymentHistory').innerHTML='<div class="empty">No hay pagos registrados.</div>';return}
  $('paymentHistory').innerHTML='<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Deuda</th><th>Pago</th><th>Balance reportado</th><th>Notas</th><th></th></tr></thead><tbody>'+
- rows.map(p=>{const d=data.debts.find(x=>x.id===p.debtId);return `<tr><td>${p.date}</td><td>${d?d.name:'Deuda eliminada'}</td><td>${money(p.amount)}</td><td>${p.newBalance===null?'—':money(p.newBalance)}</td><td>${p.notes||'—'}</td><td><button class="danger" onclick="deletePayment('${p.id}')">Eliminar</button></td></tr>`}).join('')+
+ rows.map(p=>{const d=data.debts.find(x=>x.id===p.debtId);return `<tr><td>${p.date}</td><td>${d?d.name:'Deuda eliminada'}</td><td>${money(p.amount)}</td><td>${p.newBalance===null?'—':money(p.newBalance)}</td><td>${p.notes||'—'}</td><td><div class="row-actions"><button class="secondary" onclick="editPayment('${p.id}')">Editar</button><button class="danger" onclick="deletePayment('${p.id}')">Eliminar</button></div></td></tr>`}).join('')+
  '</tbody></table></div>';
 }
 function renderDashboardDebts(){
@@ -292,16 +417,40 @@ function saveSnapshot(id){
 }
 function renderMonthTracker(){
  if(!data.debts.length){$('monthTracker').innerHTML='<div class="empty">Añade deudas primero.</div>';return}
- $('monthTracker').innerHTML='<div class="table-wrap"><table><thead><tr><th>Deuda</th><th>Balance actual</th><th>Pago requerido</th><th>Pagado este mes</th><th>Vence</th><th>Estado</th><th>Balance del statement</th></tr></thead><tbody>'+
+ $('monthTracker').innerHTML='<div class="table-wrap"><table><thead><tr><th>Deuda</th><th>Balance actual</th><th>Pago requerido</th><th>Pagado este mes</th><th>Falta</th><th>Vence</th><th>Estado</th><th>Balance del statement</th></tr></thead><tbody>'+
  data.debts.filter(d=>d.balance>0).map(d=>{const st=statusFor(d),paid=monthlyPayments(d.id),snap=data.snapshots.find(s=>s.debtId===d.id&&s.month===monthKey());return `<tr>
- <td><b>${d.name}</b></td><td>${money(d.balance)}</td><td>${money(d.minPayment)}</td><td>${money(paid)}</td><td>Día ${d.dueDay}</td>
+ <td><b>${d.name}</b></td><td>${money(d.balance)}</td><td>${money(d.minPayment)}</td><td>${money(paid)}</td><td>${money(remainingThisMonth(d))}</td><td>Día ${d.dueDay}</td>
  <td><span class="badge ${st[1]}">${st[0]}</span></td>
  <td><div style="display:flex;gap:6px;min-width:220px"><input id="snap_${d.id}" type="number" min="0" step="0.01" value="${snap?snap.statementBalance:d.balance}"><button class="secondary" onclick="saveSnapshot('${d.id}')">Guardar</button></div></td>
  </tr>`}).join('')+'</tbody></table></div>';
 }
+
+function simulatePayoff(method,extra){
+ let sim=data.debts.filter(d=>d.balance>0).map(d=>({...d})),months=0,totalInterest=0,maxMonths=600;
+ if(!sim.length)return null;
+ while(sim.some(d=>d.balance>0.005)&&months<maxMonths){
+  months++;
+  sim.forEach(d=>{
+   if(d.balance<=0)return;
+   const interest=d.balance*(d.apr/100/12);d.balance+=interest;totalInterest+=interest;
+   const pay=Math.min(d.balance,d.minPayment+(d.extraFixed||0));d.balance-=pay;
+  });
+  let active=sim.filter(d=>d.balance>0.005);
+  if(active.length&&extra>0){
+   active.sort(method==='avalanche'?(a,b)=>b.apr-a.apr:(a,b)=>a.balance-b.balance);
+   active[0].balance=Math.max(0,active[0].balance-extra);
+  }
+ }
+ return {months,totalInterest,ok:months<maxMonths};
+}
 function renderProjection(){
  let debts=data.debts.filter(d=>d.balance>0).map(d=>({...d}));
  const method=$('strategyMethod').value,extra=+$('extraPayment').value||0;
+ const av=simulatePayoff('avalanche',extra),sn=simulatePayoff('snowball',extra);
+ if(av&&sn){
+  const best=av.totalInterest<=sn.totalInterest?'Avalanche':'Snowball';
+  $('projectionComparison').innerHTML=`<div class="notice"><b>Comparación rápida</b><br>Avalanche: ${av.months} meses · ${money(av.totalInterest)} intereses<br>Snowball: ${sn.months} meses · ${money(sn.totalInterest)} intereses<br><span class="small">Menor interés estimado: <b>${best}</b></span></div>`;
+ }else $('projectionComparison').innerHTML='';
  debts.sort(method==='avalanche'?(a,b)=>b.apr-a.apr:(a,b)=>a.balance-b.balance);
  $('strategyOrder').innerHTML=debts.length?debts.map((d,i)=>`<div class="kv"><span>${i+1}. <b>${d.name}</b></span><span>${money(d.balance)} · ${d.apr.toFixed(2)}%</span></div>`).join(''):'<div class="empty">Sin deudas activas.</div>';
  if(!debts.length){$('projection').innerHTML='<div class="empty">Añade deudas para calcular.</div>';return}
@@ -330,11 +479,12 @@ function renderProjection(){
 }
 function exportData(){
  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');
- a.href=URL.createObjectURL(blob);a.download='backup_deudas_v2_'+today()+'.json';a.click();URL.revokeObjectURL(a.href);
+ a.href=URL.createObjectURL(blob);a.download='backup_deudas_v2_2_'+today()+'.json';a.click();URL.revokeObjectURL(a.href);
+ markBackupNow();
 }
 function importData(e){
  const f=e.target.files[0];if(!f)return;const r=new FileReader();
- r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.debts||!x.payments)throw 0;if(!x.snapshots)x.snapshots=[];data=x;save();alert('Backup importado.')}catch{alert('Archivo inválido.')}};r.readAsText(f);
+ r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.debts||!x.payments)throw 0;if(!x.snapshots)x.snapshots=[];data=x;localStorage.setItem(BACKUP_KEY,new Date().toISOString());save();renderBackupStatus();alert('Backup restaurado correctamente.')}catch{alert('Archivo inválido.')}};r.readAsText(f);
 }
 function exportCSV(){
  let rows=[['Fecha','Deuda','Pago','Nuevo balance','Notas']];
@@ -343,7 +493,64 @@ function exportCSV(){
  const blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pagos_deudas.csv';a.click();
 }
 function clearAll(){if(confirm('Esto eliminará todas las deudas, pagos y balances mensuales guardados en este navegador. ¿Continuar?')){data={debts:[],payments:[],snapshots:[]};save()}}
-function renderAll(){renderMetrics();renderDebtList();renderPaymentSelect();renderHistory();renderDashboardDebts();renderUpcoming();renderMonthTracker();renderProjection()}
+
+const BACKUP_KEY='mi_plan_deudas_last_backup';
+
+function openTab(tab){
+  const topBtn=document.querySelector(`nav button[data-tab="${tab}"]`);
+  if(topBtn){ topBtn.click(); }
+  document.querySelectorAll('#bottomNav button').forEach(b=>b.classList.toggle('active',b.dataset.go===tab));
+}
+
+document.querySelectorAll('#bottomNav button').forEach(btn=>{
+  btn.addEventListener('click',()=>openTab(btn.dataset.go));
+});
+
+function openBackupTab(){ openTab('backup'); window.scrollTo({top:0,behavior:'smooth'}); }
+
+function getBackupAgeDays(){
+  const raw=localStorage.getItem(BACKUP_KEY);
+  if(!raw)return null;
+  const d=new Date(raw),now=new Date();
+  return Math.floor((now-d)/86400000);
+}
+
+function renderBackupStatus(){
+  const raw=localStorage.getItem(BACKUP_KEY);
+  const box=document.getElementById('backupStatus');
+  const banner=document.getElementById('backupBanner');
+  const bannerText=document.getElementById('backupBannerText');
+  const age=getBackupAgeDays();
+
+  if(box){
+    if(!raw){
+      box.innerHTML='<b>Último backup:</b> Nunca<br><span class="small">Te recomendamos crear uno antes de comenzar a registrar mucha información.</span>';
+    }else{
+      const d=new Date(raw);
+      box.innerHTML='<b>Último backup:</b> '+d.toLocaleString('es-PR')+
+        '<br><span class="small">'+(age===0?'Backup realizado hoy.':`Hace ${age} día${age===1?'':'s'}.`)+'</span>';
+    }
+  }
+
+  if(banner){
+    if(age===null){
+      banner.classList.add('show');
+      bannerText.textContent='Aún no has creado un backup de tus datos.';
+    }else if(age>=7){
+      banner.classList.add('show');
+      bannerText.textContent=`Tu último backup fue hace ${age} días.`;
+    }else{
+      banner.classList.remove('show');
+    }
+  }
+}
+
+function markBackupNow(){
+  localStorage.setItem(BACKUP_KEY,new Date().toISOString());
+  renderBackupStatus();
+}
+
+function renderAll(){renderMetrics();renderDebtList();renderPaymentSelect();renderHistory();renderDashboardDebts();renderUpcoming();renderMonthTracker();renderProjection();renderBackupStatus()}
 renderAll();
 </script>
 
