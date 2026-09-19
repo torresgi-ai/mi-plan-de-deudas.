@@ -261,7 +261,7 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
   <div class="card">
    <h2>Seguridad de tus datos</h2>
    <div class="kv"><span>Almacenamiento</span><b>Este dispositivo</b></div>
-   <div class="kv"><span>Sincronización cloud</span><b>No</b></div>
+   <div class="kv"><span>Sincronización cloud</span><b id="cloudSummary">No</b></div>
    <div class="kv"><span>Backup recomendado</span><b>Cada 7 días</b></div>
    <div class="kv"><span>Formato</span><b>JSON</b></div>
    <div style="height:16px"></div>
@@ -321,6 +321,7 @@ function paymentToRow(p,userId){return {id:p.id,user_id:userId,debt_id:p.debtId,
 function rowToPayment(r){return {id:r.id,debtId:r.debt_id,date:r.payment_date,amount:+r.amount||0,newBalance:null,notes:r.notes||''}}
 function setCloudStatus(text,state='offline'){
  const badge=$('cloudStatus');if(badge){badge.textContent=text;badge.className='cloud-status '+state}
+ const summary=$('cloudSummary');if(summary)summary.textContent=cloudSession?'Sí':'No';
  const detail=$('syncDetail');if(detail)detail.textContent=cloudSession?'Sesión activa. Supabase sincroniza deudas y pagos; localStorage continúa como respaldo y modo sin conexión.':'Los datos se conservan en este dispositivo. Inicia sesión para sincronizar con Supabase.';
 }
 function validPublishableKey(key){
@@ -757,4 +758,3 @@ if('serviceWorker' in navigator){
 
 </body>
 </html>
-
