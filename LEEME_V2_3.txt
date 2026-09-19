@@ -1,0 +1,26 @@
+MI PLAN DE DEUDAS v2.3
+
+NOVEDADES
+- Exportar todas las deudas a CSV compatible con Excel.
+- Importar/actualizar deudas desde CSV sin duplicarlas (usa ID y, como respaldo, nombre).
+- Edición masiva de balances, APR, mínimos, extras, fechas y límites desde laptop.
+- Se conserva el mismo almacenamiento local mi_plan_deudas_v2 para mantener los datos de v2.2.
+- Backup/Restore JSON continúa disponible.
+
+ACTUALIZACION
+1. Antes de actualizar, abre v2.2 y crea un Backup JSON.
+2. Reemplaza index.html, service-worker.js y los demás archivos del sitio por los de esta carpeta.
+3. Espera a que GitHub Pages termine el deployment.
+4. En el teléfono, abre la app. Si todavía muestra v2.2, ciérrala completamente y vuelve a abrirla. Si persiste, abre el sitio en Chrome y recarga.
+5. Confirma que diga Versión 2.3 y que tus deudas continúen visibles.
+
+LAPTOP
+- Abre la misma URL de la PWA en la laptop.
+- La data NO se sincroniza automáticamente entre dispositivos.
+- En el teléfono: Backup > Exportar deudas CSV.
+- Pasa el CSV a la laptop y edítalo en Excel. No cambies la columna ID.
+- Guarda como CSV UTF-8.
+- Pasa el archivo al teléfono e importa con Backup > Importar / actualizar deudas CSV.
+
+IMPORTANTE
+El CSV es para mantenimiento de deudas. El JSON sigue siendo el backup completo porque también conserva pagos e historial.
