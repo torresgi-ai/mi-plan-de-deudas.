@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mi Plan de Deudas v2.3</title>
+<title>Mi Plan de Deudas v2.4</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
  --bg:#f5f7fb;--card:#fff;--text:#18212f;--muted:#667085;--primary:#2457d6;--primary2:#143c9e;
@@ -107,12 +108,26 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
 .bulk-table input.name-col{min-width:180px}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .file-note{padding:10px 12px;border-radius:10px;background:#eef2ff;color:#344054;margin-top:10px;font-size:12px}
+.auth-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}.auth-bar input{width:min(280px,100%);background:rgba(255,255,255,.96)}
+.cloud-status{font-size:12px;font-weight:800;padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.16)}
+.cloud-status.online{background:#ecfdf3;color:#067647}.cloud-status.offline{background:#fff4e5;color:#b54708}
+.sync-note{padding:10px 12px;border-radius:10px;background:#eef2ff;color:#344054;margin-bottom:12px}
 </style>
 </head>
 <body>
 <header>
- <h1>Mi Plan de Deudas v2.3</h1>
- <p>Seguimiento mensual, vencimientos, pagos, estados y proyección de payoff.</p><span class="version-pill">Versión 2.3</span>
+ <h1>Mi Plan de Deudas v2.4</h1>
+ <p>Seguimiento mensual, vencimientos, pagos, estados y sincronización segura.</p><span class="version-pill">Versión 2.4</span>
+ <div class="auth-bar" id="authBar">
+  <span class="cloud-status offline" id="cloudStatus">Modo local</span>
+  <input id="authEmail" type="email" autocomplete="username" placeholder="Correo electrónico">
+  <input id="authPassword" type="password" autocomplete="current-password" placeholder="Contraseña">
+  <button class="secondary" id="loginBtn" type="button">Iniciar sesión</button>
+  <button class="secondary" id="logoutBtn" type="button" style="display:none">Cerrar sesión</button>
+  <input id="newPassword" type="password" autocomplete="new-password" placeholder="Nueva contraseña" style="display:none">
+  <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Confirmar contraseña" style="display:none">
+  <button class="secondary" id="updatePasswordBtn" type="button" style="display:none">Guardar contraseña nueva</button>
+ </div>
 </header>
 <nav>
  <button class="active" data-tab="dashboard">Dashboard</button>
@@ -229,7 +244,8 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
  <div class="two">
   <div class="card">
    <h2>Backup y restauración</h2>
-   <p>La información se guarda en este dispositivo. Exporta un backup JSON regularmente para poder restaurarla si cambias de teléfono o borras los datos de la app.</p>
+   <div class="sync-note" id="syncDetail">Los datos se conservan en este dispositivo. Inicia sesión para sincronizar con Supabase.</div>
+   <p>Exporta un backup JSON regularmente. La copia local se mantiene incluso cuando la sincronización cloud está activa.</p>
    <button class="primary" onclick="exportData()">Crear backup ahora</button>
    <button class="secondary" onclick="document.getElementById('importFile').click()">Restaurar desde backup</button>
    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
@@ -275,12 +291,111 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
 const KEY='mi_plan_deudas_v2';
 let data=JSON.parse(localStorage.getItem(KEY)||'{"debts":[],"payments":[],"snapshots":[]}');
 if(!data.snapshots)data.snapshots=[];
+const SUPABASE_URL='https://mbjpzblvtplvwcjyyfsa.supabase.co';
+const SUPABASE_KEY_STORAGE='mi_plan_deudas_supabase_publishable_key';
+const MIGRATION_PREFIX='mi_plan_deudas_v2_migrated:';
+const PENDING_KEY='mi_plan_deudas_cloud_pending';
+let supabaseClient=null,cloudSession=null,syncTimer=null,syncing=false;
 const $=id=>document.getElementById(id);
 const money=n=>Number(n||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const today=()=>new Date().toISOString().slice(0,10);
 $('paymentDate').value=today();
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
-function save(){localStorage.setItem(KEY,JSON.stringify(data));renderAll()}
+function save(){
+ localStorage.setItem(KEY,JSON.stringify(data));
+ localStorage.setItem(PENDING_KEY,'1');
+ renderAll();scheduleCloudSync();
+}
+
+function isUuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v||'')}
+function ensureCloudIds(){
+ const debtIds={};
+ data.debts.forEach(d=>{if(!isUuid(d.id)){const old=d.id;d.id=crypto.randomUUID();debtIds[old]=d.id}});
+ data.payments.forEach(p=>{if(debtIds[p.debtId])p.debtId=debtIds[p.debtId];if(!isUuid(p.id))p.id=crypto.randomUUID()});
+ data.snapshots.forEach(s=>{if(debtIds[s.debtId])s.debtId=debtIds[s.debtId]});
+ localStorage.setItem(KEY,JSON.stringify(data));
+}
+function debtToRow(d,userId){return {id:d.id,user_id:userId,name:d.name,balance:+d.balance||0,apr:+d.apr||0,minimum_payment:+d.minPayment||0,extra_payment:+d.extraFixed||0,due_day:+d.dueDay||1,statement_day:+d.statementDay||0,credit_limit:+d.creditLimit||0,category:d.type||'Otro',status:d.balance<=0?'paid':'active',original_balance:+d.originalBalance||+d.balance||0,notes:d.notes||'',updated_at:new Date().toISOString()}}
+function rowToDebt(r){return {id:r.id,name:r.name,type:r.category||'Otro',balance:+r.balance||0,apr:+r.apr||0,minPayment:+r.minimum_payment||0,extraFixed:+r.extra_payment||0,dueDay:+r.due_day||1,statementDay:+r.statement_day||0,creditLimit:+r.credit_limit||0,originalBalance:+r.original_balance||+r.balance||0,notes:r.notes||''}}
+function paymentToRow(p,userId){return {id:p.id,user_id:userId,debt_id:p.debtId,amount:+p.amount||0,payment_date:p.date,notes:p.notes||''}}
+function rowToPayment(r){return {id:r.id,debtId:r.debt_id,date:r.payment_date,amount:+r.amount||0,newBalance:null,notes:r.notes||''}}
+function setCloudStatus(text,state='offline'){
+ const badge=$('cloudStatus');if(badge){badge.textContent=text;badge.className='cloud-status '+state}
+ const detail=$('syncDetail');if(detail)detail.textContent=cloudSession?'Sesión activa. Supabase sincroniza deudas y pagos; localStorage continúa como respaldo y modo sin conexión.':'Los datos se conservan en este dispositivo. Inicia sesión para sincronizar con Supabase.';
+}
+function validPublishableKey(key){
+ if(!key||key.startsWith('sb_secret_'))return false;
+ if(key.startsWith('sb_publishable_'))return true;
+ try{const body=JSON.parse(atob(key.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));return body.role==='anon'}catch{return false}
+}
+function getPublishableKey(){
+ let key=localStorage.getItem(SUPABASE_KEY_STORAGE)||window.SUPABASE_PUBLISHABLE_KEY||'';
+ if(!key){key=prompt('Pega la Publishable key de Supabase (nunca Secret ni service_role):')?.trim()||''}
+ if(!validPublishableKey(key)){if(key)alert('La clave no parece una Publishable/anon key. No se guardó.');return ''}
+ localStorage.setItem(SUPABASE_KEY_STORAGE,key);return key;
+}
+function initSupabase(){
+ if(supabaseClient)return true;const key=getPublishableKey();if(!key)return false;
+ supabaseClient=window.supabase.createClient(SUPABASE_URL,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});return true;
+}
+function scheduleCloudSync(){
+ if(!cloudSession||syncing)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>syncToCloud().catch(showSyncError),500);
+}
+function showSyncError(err){console.error(err);setCloudStatus('Pendiente de sincronizar','offline')}
+async function syncToCloud(){
+ if(!cloudSession||syncing||!navigator.onLine)return;syncing=true;setCloudStatus('Sincronizando…','online');
+ try{
+  ensureCloudIds();const uid=cloudSession.user.id;
+  const debts=data.debts.map(d=>debtToRow(d,uid)),payments=data.payments.map(p=>paymentToRow(p,uid));
+  if(debts.length){const {error}=await supabaseClient.from('debts').upsert(debts);if(error)throw error}
+  if(payments.length){const {error}=await supabaseClient.from('payments').upsert(payments);if(error)throw error}
+  const [{data:rd,error:de},{data:rp,error:pe}]=await Promise.all([supabaseClient.from('debts').select('id'),supabaseClient.from('payments').select('id')]);if(de||pe)throw de||pe;
+  const localDebtIds=new Set(debts.map(x=>x.id)),localPaymentIds=new Set(payments.map(x=>x.id));
+  const deadPayments=(rp||[]).filter(x=>!localPaymentIds.has(x.id)).map(x=>x.id);if(deadPayments.length){const {error}=await supabaseClient.from('payments').delete().in('id',deadPayments);if(error)throw error}
+  const deadDebts=(rd||[]).filter(x=>!localDebtIds.has(x.id)).map(x=>x.id);if(deadDebts.length){const {error}=await supabaseClient.from('debts').delete().in('id',deadDebts);if(error)throw error}
+  localStorage.removeItem(PENDING_KEY);setCloudStatus('Sincronizado','online');
+ }finally{syncing=false}
+}
+async function loadCloud(){
+ const [{data:debts,error:de},{data:payments,error:pe}]=await Promise.all([supabaseClient.from('debts').select('*').order('created_at'),supabaseClient.from('payments').select('*').order('payment_date')]);if(de||pe)throw de||pe;
+ data={debts:(debts||[]).map(rowToDebt),payments:(payments||[]).map(rowToPayment),snapshots:data.snapshots||[]};localStorage.setItem(KEY,JSON.stringify(data));localStorage.removeItem(PENDING_KEY);renderAll();setCloudStatus('Sincronizado','online');
+}
+async function startCloudSession(session){
+ cloudSession=session;$('loginBtn').style.display='none';$('authEmail').style.display='none';$('authPassword').style.display='none';$('logoutBtn').style.display='inline-block';
+ const marker=MIGRATION_PREFIX+session.user.id;
+ if(!localStorage.getItem(marker)&&data.debts.length){
+  const {data:existing,error}=await supabaseClient.from('debts').select('id').limit(1);if(error)throw error;
+  if(existing?.length){await loadCloud();localStorage.setItem(marker,new Date().toISOString());return}
+  if(confirm(`Se migrarán una sola vez ${data.debts.length} deuda(s) y ${data.payments.length} pago(s) desde este dispositivo a Supabase. El respaldo local no se borrará. ¿Continuar?`)){ensureCloudIds();await syncToCloud();localStorage.setItem(marker,new Date().toISOString());return}
+  setCloudStatus('Migración pendiente','offline');return;
+ }
+ if(localStorage.getItem(PENDING_KEY)==='1'&&localStorage.getItem(marker)){await syncToCloud();return}
+ await loadCloud();localStorage.setItem(marker,new Date().toISOString());
+}
+async function login(){
+ if(!initSupabase())return;const email=$('authEmail').value.trim(),password=$('authPassword').value;if(!email||!password){alert('Escribe tu correo y contraseña.');return}
+ setCloudStatus('Conectando…','online');const {data:result,error}=await supabaseClient.auth.signInWithPassword({email,password});if(error){setCloudStatus('Modo local','offline');alert('No se pudo iniciar sesión: '+error.message);return}await startCloudSession(result.session);
+}
+async function logout(){if(supabaseClient)await supabaseClient.auth.signOut();cloudSession=null;$('loginBtn').style.display='inline-block';$('authEmail').style.display='inline-block';$('authPassword').style.display='inline-block';$('logoutBtn').style.display='none';$('authPassword').value='';setCloudStatus('Modo local','offline')}
+function showPasswordRecovery(session){
+ cloudSession=session;$('authEmail').style.display='none';$('authPassword').style.display='none';$('loginBtn').style.display='none';$('logoutBtn').style.display='none';$('newPassword').style.display='inline-block';$('confirmPassword').style.display='inline-block';$('updatePasswordBtn').style.display='inline-block';setCloudStatus('Define tu contraseña nueva','online');
+}
+async function updateRecoveredPassword(){
+ const password=$('newPassword').value,confirmation=$('confirmPassword').value;
+ if(password.length<8){alert('La contraseña debe tener al menos 8 caracteres.');return}
+ if(password!==confirmation){alert('Las contraseñas no coinciden.');return}
+ const {data:result,error}=await supabaseClient.auth.updateUser({password});if(error){alert('No se pudo actualizar la contraseña: '+error.message);return}
+ history.replaceState(null,'',location.pathname+location.search);$('newPassword').value='';$('confirmPassword').value='';$('newPassword').style.display='none';$('confirmPassword').style.display='none';$('updatePasswordBtn').style.display='none';alert('Contraseña actualizada correctamente.');await startCloudSession(result.user?{...cloudSession,user:result.user}:cloudSession);
+}
+async function restoreSession(){
+ const key=localStorage.getItem(SUPABASE_KEY_STORAGE);if(!key||!validPublishableKey(key))return;if(!initSupabase())return;
+ const recovery=/[?#&]type=recovery(?:&|$)/.test(location.href);const {data:result}=await supabaseClient.auth.getSession();
+ if(result.session){if(recovery)showPasswordRecovery(result.session);else await startCloudSession(result.session)}
+ supabaseClient.auth.onAuthStateChange((event,session)=>{cloudSession=session;if(event==='PASSWORD_RECOVERY'&&session)showPasswordRecovery(session)});
+}
+$('loginBtn').addEventListener('click',()=>login().catch(showSyncError));$('logoutBtn').addEventListener('click',()=>logout().catch(showSyncError));
+$('updatePasswordBtn').addEventListener('click',()=>updateRecoveredPassword().catch(showSyncError));
+window.addEventListener('online',()=>{if(cloudSession){if(localStorage.getItem(PENDING_KEY)==='1')scheduleCloudSync();else loadCloud().catch(showSyncError)}});
 
 document.querySelectorAll('nav button').forEach(btn=>btn.onclick=()=>{
  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
@@ -497,7 +612,7 @@ function renderProjection(){
 }
 function exportData(){
  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');
- a.href=URL.createObjectURL(blob);a.download='backup_deudas_v2_3_'+today()+'.json';a.click();URL.revokeObjectURL(a.href);
+  a.href=URL.createObjectURL(blob);a.download='backup_deudas_v2_4_'+today()+'.json';a.click();URL.revokeObjectURL(a.href);
  markBackupNow();
 }
 function importData(e){
@@ -516,7 +631,7 @@ function exportDebtsCSV(){
  const rows=[headers,...data.debts.map(d=>[d.id,d.name,d.type,d.balance,d.apr,d.minPayment,d.extraFixed||0,d.dueDay,d.statementDay||'',d.creditLimit||'',d.originalBalance||'',d.notes||''])];
  const csv='\ufeff'+rows.map(r=>r.map(csvEscape).join(',')).join('\r\n');
  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');
- a.href=URL.createObjectURL(blob);a.download='deudas_v2_3_'+today()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
+  a.href=URL.createObjectURL(blob);a.download='deudas_v2_4_'+today()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
 }
 function parseCSV(text){
  const rows=[];let row=[],field='',q=false;
@@ -613,6 +728,7 @@ function markBackupNow(){
 
 function renderAll(){renderMetrics();renderDebtList();renderPaymentSelect();renderHistory();renderDashboardDebts();renderUpcoming();renderMonthTracker();renderProjection();renderBackupStatus();renderBulkDebts()}
 renderAll();
+restoreSession().catch(showSyncError);
 </script>
 
 <script>
@@ -641,3 +757,4 @@ if('serviceWorker' in navigator){
 
 </body>
 </html>
+

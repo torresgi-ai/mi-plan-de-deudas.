@@ -1,25 +1,16 @@
 {
   "name": "Mi Plan de Deudas",
-  "short_name": "Mis Deudas",
-  "description": "Manejo personal de deudas, pagos, vencimientos, utilización, backups y proyecciones.",
-  "start_url": "./index.html",
+  "short_name": "Plan Deudas",
+  "description": "Seguimiento de deudas, pagos y sincronización segura.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f5f7fb",
   "theme_color": "#2457d6",
-  "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png"}
   ]
 }
+
+
