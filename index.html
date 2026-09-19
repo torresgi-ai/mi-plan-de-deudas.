@@ -124,6 +124,9 @@ th{font-size:12px;text-transform:uppercase;color:var(--muted);background:#fafafa
   <input id="authPassword" type="password" autocomplete="current-password" placeholder="Contraseña">
   <button class="secondary" id="loginBtn" type="button">Iniciar sesión</button>
   <button class="secondary" id="logoutBtn" type="button" style="display:none">Cerrar sesión</button>
+  <input id="newPassword" type="password" autocomplete="new-password" placeholder="Nueva contraseña" style="display:none">
+  <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Confirmar contraseña" style="display:none">
+  <button class="secondary" id="updatePasswordBtn" type="button" style="display:none">Guardar contraseña nueva</button>
  </div>
 </header>
 <nav>
@@ -374,12 +377,24 @@ async function login(){
  setCloudStatus('Conectando…','online');const {data:result,error}=await supabaseClient.auth.signInWithPassword({email,password});if(error){setCloudStatus('Modo local','offline');alert('No se pudo iniciar sesión: '+error.message);return}await startCloudSession(result.session);
 }
 async function logout(){if(supabaseClient)await supabaseClient.auth.signOut();cloudSession=null;$('loginBtn').style.display='inline-block';$('authEmail').style.display='inline-block';$('authPassword').style.display='inline-block';$('logoutBtn').style.display='none';$('authPassword').value='';setCloudStatus('Modo local','offline')}
+function showPasswordRecovery(session){
+ cloudSession=session;$('authEmail').style.display='none';$('authPassword').style.display='none';$('loginBtn').style.display='none';$('logoutBtn').style.display='none';$('newPassword').style.display='inline-block';$('confirmPassword').style.display='inline-block';$('updatePasswordBtn').style.display='inline-block';setCloudStatus('Define tu contraseña nueva','online');
+}
+async function updateRecoveredPassword(){
+ const password=$('newPassword').value,confirmation=$('confirmPassword').value;
+ if(password.length<8){alert('La contraseña debe tener al menos 8 caracteres.');return}
+ if(password!==confirmation){alert('Las contraseñas no coinciden.');return}
+ const {data:result,error}=await supabaseClient.auth.updateUser({password});if(error){alert('No se pudo actualizar la contraseña: '+error.message);return}
+ history.replaceState(null,'',location.pathname+location.search);$('newPassword').value='';$('confirmPassword').value='';$('newPassword').style.display='none';$('confirmPassword').style.display='none';$('updatePasswordBtn').style.display='none';alert('Contraseña actualizada correctamente.');await startCloudSession(result.user?{...cloudSession,user:result.user}:cloudSession);
+}
 async function restoreSession(){
  const key=localStorage.getItem(SUPABASE_KEY_STORAGE);if(!key||!validPublishableKey(key))return;if(!initSupabase())return;
- const {data:result}=await supabaseClient.auth.getSession();if(result.session)await startCloudSession(result.session);
- supabaseClient.auth.onAuthStateChange((_event,session)=>{cloudSession=session});
+ const recovery=/[?#&]type=recovery(?:&|$)/.test(location.href);const {data:result}=await supabaseClient.auth.getSession();
+ if(result.session){if(recovery)showPasswordRecovery(result.session);else await startCloudSession(result.session)}
+ supabaseClient.auth.onAuthStateChange((event,session)=>{cloudSession=session;if(event==='PASSWORD_RECOVERY'&&session)showPasswordRecovery(session)});
 }
 $('loginBtn').addEventListener('click',()=>login().catch(showSyncError));$('logoutBtn').addEventListener('click',()=>logout().catch(showSyncError));
+$('updatePasswordBtn').addEventListener('click',()=>updateRecoveredPassword().catch(showSyncError));
 window.addEventListener('online',()=>{if(cloudSession){if(localStorage.getItem(PENDING_KEY)==='1')scheduleCloudSync();else loadCloud().catch(showSyncError)}});
 
 document.querySelectorAll('nav button').forEach(btn=>btn.onclick=()=>{
@@ -742,5 +757,4 @@ if('serviceWorker' in navigator){
 
 </body>
 </html>
-
 
